@@ -70,6 +70,11 @@ cd crates/regex_lab_web/static && python3 -m http.server 8080
 | `INPUT_TOO_LONG` | Test input exceeds maximum allowed length |
 | `REPLACEMENT_ERROR` | Replacement string is invalid for the pattern |
 
+## Commit Language
+
+- Write commit subjects and bodies in English and follow Conventional Commits.
+- This repository-level rule overrides any global preference for another commit-message language.
+
 ## Frontend Design Requirement
 
 - Before creating, modifying, reviewing, or debugging any HTML page or user-facing frontend, invoke the `ui-ux-pro-max` skill.

@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>regex_lab — 正则表达式测试实验室</title>
+<meta name="description" content="浏览器原生的正则表达式测试实验室。实时匹配、捕获组提取、替换预览、多语言代码生成。全部在 WASM 中运行。">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0F172A; --surface: #1E293B; --surface2: #334155;
+    --cta: #22C55E; --cta-hover: #16A34A;
+    --text: #F8FAFC; --text-muted: #94A3B8; --accent: #3B82F6;
+    --error: #EF4444; --warn: #F59E0B;
+    --match-bg: rgb(34 197 94 / .25); --match-border: #22C55E;
+    --group-bg: rgb(59 130 246 / .2); --group-border: #3B82F6;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --radius: 8px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--surface2);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--cta);
+  }
+  header nav { display: flex; gap: 16px; }
+  header nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: .85rem;
+    transition: color .2s;
+  }
+  header nav a:hover { color: var(--text); }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 20px;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* Sidebar */
+  #sidebar {
+    grid-row: 1 / -1;
+    background: var(--surface);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-size: .8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 600;
+  }
+  .field input, .field textarea, .field select {
+    background: var(--bg);
+    color: var(--text);
+    border: 2px solid var(--surface2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    transition: border-color .2s;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 120px; }
+  #pattern { font-size: 1rem; }
+  #pattern.valid { border-color: var(--cta); }
+  #pattern.invalid { border-color: var(--error); }
+  #pattern-error {
+    font-size: .78rem;
+    color: var(--error);
+    min-height: 1.2em;
+  }
+
+  /* Flags */
+  .flags-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .flag-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .82rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+  .flag-item:hover { background: var(--surface2); }
+  .flag-item input[type="checkbox"] {
+    accent-color: var(--cta);
+    width: 14px; height: 14px;
+    cursor: pointer;
+  }
+  .flag-item code {
+    font-family: var(--font-mono);
+    background: var(--surface2);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: .75rem;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+  }
+  .btn-primary { background: var(--cta); color: var(--bg); }
+  .btn-primary:hover { background: var(--cta-hover); }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--surface2);
+    color: var(--text);
+    font-size: .75rem;
+    padding: 4px 10px;
+  }
+  .btn-secondary:hover { border-color: var(--cta); color: var(--cta); }
+
+  /* Tabs */
+  #tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--surface2);
+    margin-bottom: -1px;
+  }
+  .tab-btn {
+    padding: 10px 24px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all .2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--cta); border-bottom-color: var(--cta); }
+
+  /* Content area */
+  #content {
+    grid-column: 2;
+    background: var(--surface);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #content > .tab-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  #content > .tab-panel.active { display: flex; }
+
+  /* Match results */
+  #match-stats {
+    font-size: .82rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgb(34 197 94 / .08);
+    border-radius: 6px;
+    border-left: 3px solid var(--cta);
+  }
+  #match-output {
+    background: var(--bg);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  #match-output .hl-match {
+    background: var(--match-bg);
+    border: 1px solid var(--match-border);
+    border-radius: 3px;
+    padding: 1px 0;
+  }
+  #match-output .hl-group {
+    background: var(--group-bg);
+    border: 1px solid var(--group-border);
+    border-radius: 3px;
+    padding: 1px 0;
+  }
+
+  /* Capture groups table */
+  #groups-table-wrap { margin-top: 16px; }
+  #groups-table-wrap h3 {
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    margin-bottom: 8px;
+  }
+  #groups-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+    font-family: var(--font-mono);
+  }
+  #groups-table th, #groups-table td {
+    text-align: left;
+    padding: 6px 10px;
+    border: 1px solid var(--surface2);
+  }
+  #groups-table th {
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: .75rem;
+  }
+  #groups-table td { color: var(--text); }
+  #groups-table .group-name { color: var(--accent); }
+  #groups-table .group-val { color: var(--cta); }
+  #groups-table .group-empty { color: var(--text-muted); font-style: italic; }
+
+  /* Replace tab */
+  #replace-output {
+    background: var(--bg);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 100px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  #replace-stats {
+    font-size: .82rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgb(59 130 246 / .08);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* Code gen tab */
+  #code-language {
+    margin-bottom: 12px;
+    width: 200px;
+  }
+  #code-output {
+    background: var(--bg);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+    color: var(--text);
+  }
+  #code-output .comment { color: #6B7280; }
+  #code-output .keyword { color: #C084FC; }
+  #code-output .string { color: #22C55E; }
+  #code-output .fn { color: #60A5FA; }
+
+  .copy-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--cta);
+    color: var(--bg);
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .3s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    main {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+    }
+    #sidebar { grid-row: auto; }
+    #content { grid-column: 1; }
+    .flags-grid { grid-template-columns: 1fr 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>regex_lab</h1>
+  <nav>
+    <a href="https://github.com/Tinkora/regex_lab" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="field">
+      <label for="pattern">正则表达式</label>
+      <input id="pattern" type="text" placeholder="例如: \d{3}-\d{4}" autocomplete="off" spellcheck="false">
+      <span id="pattern-error"></span>
+    </div>
+
+    <div>
+      <label style="font-size:.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;display:block;margin-bottom:6px;">标志位</label>
+      <div class="flags-grid">
+        <label class="flag-item"><input type="checkbox" id="flag-i"><code>i</code> 忽略大小写</label>
+        <label class="flag-item"><input type="checkbox" id="flag-m"><code>m</code> 多行模式</label>
+        <label class="flag-item"><input type="checkbox" id="flag-s"><code>s</code> 点匹配换行</label>
+        <label class="flag-item"><input type="checkbox" id="flag-U"><code>U</code> 非贪婪</label>
+        <label class="flag-item"><input type="checkbox" id="flag-x"><code>x</code> 忽略空白</label>
+        <label class="flag-item"><input type="checkbox" id="flag-u" checked><code>u</code> Unicode</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="input-text">测试文本</label>
+      <textarea id="input-text" placeholder="在此输入或粘贴测试文本..."></textarea>
+    </div>
+
+    <div class="field" id="replace-field" style="display:none;">
+      <label for="replacement">替换文本</label>
+      <input id="replacement" type="text" placeholder="替换字符串 ($1 引用捕获组)">
+    </div>
+
+    <div class="field" id="replace-toggle" style="display:none;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="replace-all" checked>
+        <span>全局替换</span>
+      </label>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <section id="tab-bar">
+    <button class="tab-btn active" data-tab="match">匹配</button>
+    <button class="tab-btn" data-tab="replace">替换</button>
+    <button class="tab-btn" data-tab="code">代码生成</button>
+  </section>
+
+  <section id="content">
+    <!-- Match Tab -->
+    <div class="tab-panel active" id="tab-match">
+      <div id="match-stats" style="display:none;"></div>
+      <div id="match-output" style="display:none;"></div>
+      <div id="groups-table-wrap" style="display:none;">
+        <h3>捕获组</h3>
+        <table id="groups-table">
+          <thead><tr><th>编号/名称</th><th>值</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="match-empty" style="color:var(--text-muted);text-align:center;padding:40px;font-size:.9rem;">
+        输入正则表达式和测试文本查看匹配结果
+      </div>
+    </div>
+
+    <!-- Replace Tab -->
+    <div class="tab-panel" id="tab-replace">
+      <div id="replace-stats" style="display:none;"></div>
+      <div id="replace-output" style="display:none;"></div>
+      <div id="replace-empty" style="color:var(--text-muted);text-align:center;padding:40px;font-size:.9rem;">
+        输入正则表达式、替换文本和测试文本预览替换效果
+      </div>
+    </div>
+
+    <!-- Code Tab -->
+    <div class="tab-panel" id="tab-code">
+      <div class="copy-bar">
+        <select id="code-language">
+          <option value="javascript">JavaScript</option>
+          <option value="python">Python</option>
+          <option value="rust">Rust</option>
+          <option value="go">Go</option>
+        </select>
+        <button id="copy-code" class="btn btn-secondary">📋 复制代码</button>
+      </div>
+      <div id="code-output">
+        <span style="color:var(--text-muted);">输入正则表达式，选择目标语言，生成等效代码片段</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast">已复制到剪贴板</div>
+
+<script type="module">
+import init, {
+  wasm_test_match, wasm_find_all, wasm_replace, wasm_validate, wasm_generate_code
+} from './pkg/regex_lab_web.js';
+
+// ── State ──
+let currentTab = 'match';
+let debounceTimer = null;
+const DEBOUNCE_MS = 150;
+
+// ── DOM refs ──
+const $pattern = document.getElementById('pattern');
+const $patternErr = document.getElementById('pattern-error');
+const $input = document.getElementById('input-text');
+const $replacement = document.getElementById('replacement');
+const $replaceAll = document.getElementById('replace-all');
+
+// ── Options ──
+function getOptions() {
+  return JSON.stringify({
+    caseInsensitive: document.getElementById('flag-i').checked,
+    multiLine: document.getElementById('flag-m').checked,
+    dotMatchesNewLine: document.getElementById('flag-s').checked,
+    swapGreed: document.getElementById('flag-U').checked,
+    ignoreWhitespace: document.getElementById('flag-x').checked,
+    unicode: document.getElementById('flag-u').checked,
+    octal: false
+  });
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── Tab switching ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + currentTab).classList.add('active');
+
+    // Show/hide replace fields
+    const showReplace = currentTab === 'replace';
+    document.getElementById('replace-field').style.display = showReplace ? '' : 'none';
+    document.getElementById('replace-toggle').style.display = showReplace ? '' : 'none';
+
+    update();
+  });
+});
+
+// ── Validation (on every keystroke) ──
+async function validatePattern() {
+  const p = $pattern.value.trim();
+  if (!p) {
+    $pattern.classList.remove('valid', 'invalid');
+    $patternErr.textContent = '';
+    return true; // empty is fine — just no results
+  }
+
+  try {
+    const result = wasm_validate(p);
+    if (result.valid) {
+      $pattern.classList.add('valid');
+      $pattern.classList.remove('invalid');
+      $patternErr.textContent = '';
+      return true;
+    } else {
+      $pattern.classList.add('invalid');
+      $pattern.classList.remove('valid');
+      $patternErr.textContent = '✕ ' + (result.error || '未知错误');
+      return false;
+    }
+  } catch (e) {
+    $pattern.classList.add('invalid');
+    $pattern.classList.remove('valid');
+    $patternErr.textContent = '✕ ' + (e.message || e);
+    return false;
+  }
+}
+
+// ── Main update ──
+async function update() {
+  const pattern = $pattern.value.trim();
+  const input = $input.value;
+  const options = getOptions();
+
+  const valid = await validatePattern();
+  if (!valid || !pattern || !input) {
+    if (currentTab === 'match') resetMatch();
+    if (currentTab === 'replace') resetReplace();
+    return;
+  }
+
+  if (currentTab === 'match') await updateMatch(pattern, options, input);
+  else if (currentTab === 'replace') await updateReplace(pattern, options, input);
+  else if (currentTab === 'code') await updateCode(pattern);
+}
+
+// ── Match tab ──
+function resetMatch() {
+  document.getElementById('match-stats').style.display = 'none';
+  document.getElementById('match-output').style.display = 'none';
+  document.getElementById('groups-table-wrap').style.display = 'none';
+  document.getElementById('match-empty').style.display = '';
+}
+
+async function updateMatch(pattern, options, input) {
+  try {
+    const results = wasm_find_all(pattern, options, input);
+    const count = Array.isArray(results) ? results.length : 0;
+
+    document.getElementById('match-empty').style.display = 'none';
+
+    // Stats
+    const statsEl = document.getElementById('match-stats');
+    statsEl.style.display = '';
+    statsEl.textContent = `共 ${count} 个匹配`;
+
+    // Highlighted output
+    const outEl = document.getElementById('match-output');
+    outEl.style.display = '';
+
+    if (count === 0) {
+      outEl.innerHTML = escapeHtml(input);
+    } else {
+      // Build highlighted HTML
+      let html = '';
+      let lastEnd = 0;
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        // Text before match
+        html += escapeHtml(input.slice(lastEnd, r.matchStart));
+        // Highlighted match
+        html += `<span class="hl-match" title="匹配 #${i + 1}">${escapeHtml(r.matchedText)}</span>`;
+        lastEnd = r.matchEnd;
+      }
+      html += escapeHtml(input.slice(lastEnd));
+      outEl.innerHTML = html;
+    }
+
+    // Groups table (show first match's groups)
+    const groupsWrap = document.getElementById('groups-table-wrap');
+    const groupsBody = document.getElementById('groups-table').querySelector('tbody');
+    groupsBody.innerHTML = '';
+
+    if (count > 0) {
+      const first = results[0];
+      let hasGroups = false;
+
+      // Numbered groups (skip index 0 = full match)
+      for (let i = 1; i < (first.groups || []).length; i++) {
+        hasGroups = true;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="group-name">$${i}</td><td class="${first.groups[i] ? 'group-val' : 'group-empty'}">${escapeHtml(first.groups[i] || '(空)')}</td>`;
+        groupsBody.appendChild(tr);
+      }
+
+      // Named groups
+      const named = first.namedGroups || {};
+      for (const [name, val] of Object.entries(named)) {
+        hasGroups = true;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="group-name">$${escapeHtml(name)}</td><td class="${val ? 'group-val' : 'group-empty'}">${escapeHtml(val || '(空)')}</td>`;
+        groupsBody.appendChild(tr);
+      }
+
+      groupsWrap.style.display = hasGroups ? '' : 'none';
+    } else {
+      groupsWrap.style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('match-output').style.display = '';
+    document.getElementById('match-output').innerHTML = `<span style="color:var(--error);">错误: ${escapeHtml(e.message || String(e))}</span>`;
+    document.getElementById('match-stats').style.display = 'none';
+    document.getElementById('groups-table-wrap').style.display = 'none';
+  }
+}
+
+// ── Replace tab ──
+function resetReplace() {
+  document.getElementById('replace-stats').style.display = 'none';
+  document.getElementById('replace-output').style.display = 'none';
+  document.getElementById('replace-empty').style.display = '';
+}
+
+async function updateReplace(pattern, options, input) {
+  const replacement = $replacement.value;
+  const replaceAll = $replaceAll.checked;
+
+  try {
+    const result = wasm_replace(pattern, options, input, replacement, replaceAll);
+    document.getElementById('replace-empty').style.display = 'none';
+
+    const statsEl = document.getElementById('replace-stats');
+    statsEl.style.display = '';
+    statsEl.textContent = `替换了 ${result.matchCount} 处`;
+
+    const outEl = document.getElementById('replace-output');
+    outEl.style.display = '';
+    outEl.textContent = result.replaced;
+  } catch (e) {
+    document.getElementById('replace-output').style.display = '';
+    document.getElementById('replace-output').innerHTML = `<span style="color:var(--error);">错误: ${escapeHtml(e.message || String(e))}</span>`;
+    document.getElementById('replace-stats').style.display = 'none';
+  }
+}
+
+// ── Code gen ──
+async function updateCode(pattern) {
+  if (!pattern) return;
+  const lang = document.getElementById('code-language').value;
+  try {
+    const code = wasm_generate_code(pattern, lang);
+    document.getElementById('code-output').textContent = code;
+  } catch (e) {
+    document.getElementById('code-output').textContent = '错误: ' + (e.message || e);
+  }
+}
+
+// ── Copy ──
+document.getElementById('copy-code').addEventListener('click', () => {
+  const code = document.getElementById('code-output').textContent;
+  if (code && !code.startsWith('错误') && !code.startsWith('输入')) {
+    navigator.clipboard.writeText(code).then(() => showToast('已复制到剪贴板'));
+  }
+});
+
+// ── Event binding ──
+function debounceUpdate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(update, DEBOUNCE_MS);
+}
+
+$pattern.addEventListener('input', debounceUpdate);
+$input.addEventListener('input', debounceUpdate);
+$replacement.addEventListener('input', debounceUpdate);
+$replaceAll.addEventListener('change', update);
+document.getElementById('code-language').addEventListener('change', () => updateCode($pattern.value.trim()));
+
+document.querySelectorAll('input[type="checkbox"][id^="flag-"]').forEach(cb => {
+  cb.addEventListener('change', update);
+});
+
+// ── Escape HTML ──
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+// ── Init WASM ──
+async function main() {
+  await init();
+  // Run initial validation
+  await validatePattern();
+
+  // Focus pattern input
+  $pattern.focus();
+}
+
+main().catch(console.error);
+</script>
+<footer style="padding:10px 16px;text-align:center;color:var(--text-muted, #94a3b8);font-size:12px;line-height:1.4;">regex_lab by Tinkora</footer>
+</body>
+</html>

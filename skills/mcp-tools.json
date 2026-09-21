@@ -1,0 +1,114 @@
+{
+  "name": "regex_lab",
+  "version": "0.1.0",
+  "description": "Browser-native regular expression testing lab. Real-time matching, capture group extraction, replace preview, and multi-language code generation — all powered by Rust/WASM.",
+  "tools": [
+    {
+      "name": "regex_test_match",
+      "description": "Test a regular expression pattern against input text and return the first match with capture groups.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern." },
+          "input": { "type": "string", "description": "Test input text." },
+          "case_insensitive": { "type": "boolean", "default": false, "description": "Case-insensitive matching (flag i)." },
+          "multi_line": { "type": "boolean", "default": false, "description": "Multi-line mode: ^ and $ match line boundaries (flag m)." },
+          "dot_matches_new_line": { "type": "boolean", "default": false, "description": "Dot matches newline characters (flag s)." },
+          "swap_greed": { "type": "boolean", "default": false, "description": "Swap greediness: operators become non-greedy (flag U)." },
+          "ignore_whitespace": { "type": "boolean", "default": false, "description": "Ignore whitespace and comments in pattern (flag x)." },
+          "unicode": { "type": "boolean", "default": true, "description": "Enable Unicode-aware matching (flag u)." }
+        },
+        "required": ["pattern", "input"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "regex_find_all",
+      "description": "Find all non-overlapping matches of a regular expression pattern in input text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern." },
+          "input": { "type": "string", "description": "Test input text." },
+          "case_insensitive": { "type": "boolean", "default": false },
+          "multi_line": { "type": "boolean", "default": false },
+          "dot_matches_new_line": { "type": "boolean", "default": false },
+          "swap_greed": { "type": "boolean", "default": false },
+          "ignore_whitespace": { "type": "boolean", "default": false },
+          "unicode": { "type": "boolean", "default": true }
+        },
+        "required": ["pattern", "input"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "regex_replace",
+      "description": "Replace matches of a regular expression pattern with a replacement string. Supports $1/$name capture group references.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern." },
+          "input": { "type": "string", "description": "Test input text." },
+          "replacement": { "type": "string", "description": "Replacement string (supports $1, $name capture group references)." },
+          "replace_all": { "type": "boolean", "default": true, "description": "If true, replace all matches; if false, replace only the first match." },
+          "case_insensitive": { "type": "boolean", "default": false },
+          "multi_line": { "type": "boolean", "default": false },
+          "dot_matches_new_line": { "type": "boolean", "default": false },
+          "swap_greed": { "type": "boolean", "default": false },
+          "ignore_whitespace": { "type": "boolean", "default": false },
+          "unicode": { "type": "boolean", "default": true }
+        },
+        "required": ["pattern", "input", "replacement"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "regex_split",
+      "description": "Split input text by the regular expression pattern.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern used as the delimiter." },
+          "input": { "type": "string", "description": "Text to split." },
+          "case_insensitive": { "type": "boolean", "default": false },
+          "multi_line": { "type": "boolean", "default": false },
+          "dot_matches_new_line": { "type": "boolean", "default": false },
+          "swap_greed": { "type": "boolean", "default": false },
+          "ignore_whitespace": { "type": "boolean", "default": false },
+          "unicode": { "type": "boolean", "default": true }
+        },
+        "required": ["pattern", "input"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "regex_validate",
+      "description": "Validate whether a regular expression pattern is syntactically valid.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern to validate." }
+        },
+        "required": ["pattern"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "regex_generate_code",
+      "description": "Generate a code snippet for using this regular expression pattern in a target language.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regular expression pattern." },
+          "language": {
+            "type": "string",
+            "enum": ["javascript", "python", "rust", "go"],
+            "description": "Target programming language."
+          }
+        },
+        "required": ["pattern", "language"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
